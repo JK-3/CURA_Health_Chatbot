@@ -1,3 +1,4 @@
+
 from flask import Flask, render_template, jsonify, request, session
 from src.helper import download_hugging_face_embeddings, clean_ocr_text
 from langchain_pinecone import PineconeVectorStore
@@ -8,7 +9,8 @@ import pytesseract
 import os
 import io
 from werkzeug.utils import secure_filename
-pytesseract.pytesseract.tesseract_cmd = r"C:\\Program Files\\Tesseract-OCR"
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+
 
 
 # Initialize Flask app
@@ -82,8 +84,8 @@ Act as a nutrition ingredient analysis expert. Based on the following ingredient
 3. **Health Impact Tags** (e.g., impact on acne, PCOS, diabetes, gut health, etc).
 4. **Red Flags or Vague Terms** (e.g., 'natural flavoring', 'spices', etc).
 5. **Warnings**: High sugar, sodium, bad fats, hormone disruptors, etc.
-6. **Diet Compatibility**: Mark if it's suitable for keto, sugar-free, low-carb, gluten-free, etc.
-7. **Final Verdict**: Is it a health-conscious choice? (Yes/No with a reason).
+6. **Diet Compatibility**: Mark if it's suitable for keto, sugar-free, low-carb, gluten-free,acne prone etc.
+7. **Final Verdict- Is it a health-conscious choice?**: Is it a health-conscious choice? (Yes/No with a reason).
 
 Input: {user_query}
 

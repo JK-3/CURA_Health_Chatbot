@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11,7 +12,6 @@
             background: linear-gradient(to right, #cfe9f1, #d9ebe3);
             font-family: 'Segoe UI', sans-serif;
         }
-
         .header {
             background-color: #e0f7f5;
             padding: 20px;
@@ -21,12 +21,11 @@
             font-size: 28px;
             color: #2a7766;
         }
-
         .header h1::before {
-          content: '\2764';
-          color: #2ecc71; /* Green heartbeat */
-          font-size: 24px;
-        } 
+            content: '\2764';
+            color: #2ecc71;
+            font-size: 24px;
+        }
         .tagline {
             font-size: 14px;
             color: #4c6960;
@@ -37,7 +36,6 @@
             display: none;
             margin-top: 10px;
         }
-
         .chat-container {
             max-width: 800px;
             margin: 40px auto;
@@ -48,7 +46,9 @@
             flex-direction: column;
             min-height: 80vh;
         }
-
+        .chat-container.nutrition-mode {
+            background-color: #e3f9ed;
+        }
         .chat-box {
             flex-grow: 1;
             overflow-y: auto;
@@ -58,7 +58,6 @@
             margin-bottom: 20px;
             max-height: 400px;
         }
-
         .bot-message, .user-message {
             max-width: 70%;
             padding: 12px 16px;
@@ -66,24 +65,22 @@
             border-radius: 18px;
             font-size: 16px;
             line-height: 1.4;
+            white-space: pre-wrap;
         }
-
         .bot-message {
             background-color: #d4edff;
             align-self: flex-start;
         }
-
         .user-message {
             background-color: #cdecd1;
             align-self: flex-end;
+            text-align: right;
         }
-
         .input-container {
             display: flex;
             align-items: center;
             gap: 10px;
         }
-
         #textInput {
             flex-grow: 1;
             padding: 12px;
@@ -91,7 +88,6 @@
             border: 1px solid #ccc;
             font-size: 16px;
         }
-
         #uploadImageInput {
             display: none;
         }
@@ -99,15 +95,14 @@
             background: none;
             border: none;
             cursor: pointer;
+            font-size: 20px;
         }
-
         .mode-buttons {
             display: flex;
             justify-content: center;
             gap: 15px;
             margin-top: 10px;
         }
-
         .mode-button {
             padding: 10px 16px;
             border: none;
@@ -118,108 +113,173 @@
             cursor: pointer;
             transition: all 0.3s;
         }
-
         .mode-button.active {
             background-color: #91d4b6;
             color: white;
         }
+        #imagePreview {
+            max-width: 120px;
+            max-height: 120px;
+            margin-top: 10px;
+            border-radius: 10px;
+            display: none;
+        }
+        .status-message {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
-    <div class="chat-container" id="chatContainer">
-        <div class="header">
-            <h1> HealthBot</h1>
-            <div class="tagline">Your Health Companion</div>
-            <div class="subheading" id="subheading">Decode Your Food</div>
-        </div>
-        <div class="chat-box" id="chatBox"></div>
+<div class="chat-container" id="chatContainer">
+    <div class="header">
+        <h1> HealthBot</h1>
+        <div class="tagline">Your Health Companion</div>
+        <div class="subheading" id="subheading">Decode Your Food</div>
+    </div>
+    <div class="chat-box" id="chatBox"></div>
+    <img id="imagePreview"/>
+    <div class="status-message" id="statusMessage"></div>
 
-        <div class="input-container">
-            <input type="text" id="textInput" placeholder="Type your message..." />
-            <label for="uploadImageInput" class="icon-button">➕</label>
-            <input type="file" id="uploadImageInput" accept="image/*" />
-            <button id="sendButton" class="icon-button">📤</button>
-        </div>
-
-        <div class="mode-buttons">
-            <button class="mode-button active" id="chatModeBtn">Chat Mode</button>
-            <button class="mode-button" id="nutritionModeBtn">Label Decoder</button>
-        </div>
+    <div class="input-container">
+        <input type="text" id="textInput" placeholder="Type your message..." />
+        <label for="uploadImageInput" class="icon-button">➕</label>
+        <input type="file" id="uploadImageInput" accept="image/*" />
+        <button id="sendButton" class="icon-button">➡️</button>
     </div>
 
-    <script>
-        const chatBox = document.getElementById("chatBox");
-        const textInput = document.getElementById("textInput");
-        const sendButton = document.getElementById("sendButton");
-        const uploadInput = document.getElementById("uploadImageInput");
-        const chatModeBtn = document.getElementById("chatModeBtn");
-        const nutritionModeBtn = document.getElementById("nutritionModeBtn");
-        let currentMode = "chat";
+    <div class="mode-buttons">
+        <button class="mode-button active" id="chatModeBtn">Chat Mode</button>
+        <button class="mode-button" id="nutritionModeBtn">Label Decoder</button>
+    </div>
+</div>
 
-        function appendMessage(sender, message) {
-            const msg = document.createElement("div");
-            msg.classList.add(sender === "user" ? "user-message" : "bot-message");
-            msg.textContent = message;
-            chatBox.appendChild(msg);
-            chatBox.scrollTop = chatBox.scrollHeight;
-        }
+<script>
+    const chatBox = document.getElementById("chatBox");
+    const textInput = document.getElementById("textInput");
+    const sendButton = document.getElementById("sendButton");
+    const uploadInput = document.getElementById("uploadImageInput");
+    const chatModeBtn = document.getElementById("chatModeBtn");
+    const nutritionModeBtn = document.getElementById("nutritionModeBtn");
+    const chatContainer = document.getElementById("chatContainer");
+    const statusMessage = document.getElementById("statusMessage");
+    const imagePreview = document.getElementById("imagePreview");
+    const subheading = document.getElementById("subheading");
+    let currentMode = "chat";
 
-        sendButton.onclick = () => {
-            const msg = textInput.value.trim();
-            if (!msg) return;
-            appendMessage("user", msg);
-            textInput.value = "";
-            fetch("/get", {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: new URLSearchParams({ msg })
-            })
-            .then(res => res.json())
-            .then(data => {
+    function formatNutritionResponse(responseText) {
+        let formatted = responseText
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold headings
+            .replace(/\n\n/g, '<br><br>')
+            .replace(/\n/g, '<br>')
+            .replace(/- /g, '• ');
+        return formatted;
+    }
+
+    function appendMessage(sender, message) {
+        const msg = document.createElement("div");
+        msg.classList.add(sender === "user" ? "user-message" : "bot-message");
+        msg.dataset.mode = currentMode;
+        msg.innerHTML = (sender === "bot" && currentMode === "nutrition") 
+                          ? formatNutritionResponse(message) 
+                          : message;
+        chatBox.appendChild(msg);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function toggleMessageVisibility() {
+        document.querySelectorAll("#chatBox .user-message, #chatBox .bot-message").forEach(msg => {
+            msg.style.display = msg.dataset.mode === currentMode ? "block" : "none";
+        });
+    }
+
+    sendButton.onclick = () => {
+        const msg = textInput.value.trim();
+        if (!msg) return;
+        appendMessage("user", msg);
+        textInput.value = "";
+        fetch("/get", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({ msg })
+        })
+        .then(res => res.json())
+        .then(data => {
+            appendMessage("bot", data.response);
+            toggleMessageVisibility();
+        });
+    };
+
+    textInput.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") sendButton.click();
+    });
+
+    uploadInput.onchange = () => {
+        const file = uploadInput.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            imagePreview.src = e.target.result;
+            imagePreview.style.display = "block";
+        };
+        reader.readAsDataURL(file);
+
+        const formData = new FormData();
+        formData.append("image", file);
+        appendMessage("user", "[Image uploaded for analysis...]");
+        statusMessage.textContent = "Analyzing uploaded image...";
+
+        fetch("/upload_image", {
+            method: "POST",
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            statusMessage.textContent = "";
+            if (data.response) {
                 appendMessage("bot", data.response);
-            });
-        };
+            } else if (data.error) {
+                appendMessage("bot", "Error: " + data.error);
+            }
+            toggleMessageVisibility();
+        })
+        .catch(err => {
+            statusMessage.textContent = "";
+            appendMessage("bot", "Something went wrong while uploading the image.");
+            console.error(err);
+        });
+    };
 
-        chatModeBtn.onclick = () => {
-            fetch("/set_mode", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ mode: "chat" }) })
-            .then(() => {
-                currentMode = "chat";
-                chatContainer.classList.remove("nutrition-mode");
-                chatModeBtn.classList.add("active");
-                nutritionModeBtn.classList.remove("active");
+    chatModeBtn.onclick = () => {
+        fetch("/set_mode", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({ mode: "chat" })
+        }).then(() => {
+            currentMode = "chat";
+            chatContainer.classList.remove("nutrition-mode");
+            chatModeBtn.classList.add("active");
+            nutritionModeBtn.classList.remove("active");
+            subheading.style.display = "none";
+            toggleMessageVisibility();
+        });
+    };
 
-                document.querySelectorAll(".chat-message").forEach(msg => {
-                    if (msg.dataset.mode === "nutrition") {
-                        msg.style.display = "none";
-                    } else {
-                        msg.style.display = "block";
-                    }
-                });
-
-                document.getElementById("subheading").style.display = "none";
-
-            });
-        };
-
-        nutritionModeBtn.onclick = () => {
-            fetch("/set_mode", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ mode: "nutrition" }) })
-            .then(() => {
-                currentMode = "nutrition";
-                chatContainer.classList.add("nutrition-mode");
-                chatModeBtn.classList.remove("active");
-                nutritionModeBtn.classList.add("active");
-
-                document.querySelectorAll(".chat-message").forEach(msg => {
-                    if (msg.dataset.mode === "chat") {
-                        msg.style.display = "none";
-                    } else {
-                        msg.style.display = "block";
-                    }
-                });
-                document.getElementById("subheading").style.display = "block";
-
-            });
-        };
-    </script>
+    nutritionModeBtn.onclick = () => {
+        fetch("/set_mode", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({ mode: "nutrition" })
+        }).then(() => {
+            currentMode = "nutrition";
+            chatContainer.classList.add("nutrition-mode");
+            chatModeBtn.classList.remove("active");
+            nutritionModeBtn.classList.add("active");
+            subheading.style.display = "block";
+            toggleMessageVisibility();
+        });
+    };
+</script>
 </body>
 </html>

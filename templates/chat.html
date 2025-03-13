@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <title>Health Chatbot</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
     <style>
         body {
             margin: 0;
@@ -21,11 +23,7 @@
             font-size: 28px;
             color: #2a7766;
         }
-        .header h1::before {
-            content: '\2764';
-            color: #2ecc71;
-            font-size: 24px;
-        }
+        
         .tagline {
             font-size: 14px;
             color: #4c6960;
@@ -75,6 +73,7 @@
             background-color: #cdecd1;
             align-self: flex-end;
             text-align: right;
+            margin-left: auto;
         }
         .input-container {
             display: flex;
@@ -117,36 +116,52 @@
             background-color: #91d4b6;
             color: white;
         }
-        #imagePreview {
-            max-width: 120px;
-            max-height: 120px;
-            margin-top: 10px;
-            border-radius: 10px;
-            display: none;
-        }
         .status-message {
             font-size: 14px;
             color: #666;
             margin-top: 5px;
         }
+        .chat-image {
+            max-width: 150px;
+            max-height: 150px;
+            border-radius: 10px;
+        }
+        #sendButton i {
+            font-size: 18px;
+            color: white;
+        }
+        #sendButton {
+            background-color: #2a7766;
+            border-radius: 50%;
+            padding: 10px 12px;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        #sendButton:hover {
+            background-color: #1e5b4f;
+        }
+
     </style>
 </head>
 <body>
 <div class="chat-container" id="chatContainer">
     <div class="header">
-        <h1> HealthBot</h1>
+        <h1><i class="fas fa-heart-pulse" style="color:#2ecc71;"></i> HealthBot</h1>
         <div class="tagline">Your Health Companion</div>
         <div class="subheading" id="subheading">Decode Your Food</div>
     </div>
     <div class="chat-box" id="chatBox"></div>
-    <img id="imagePreview"/>
     <div class="status-message" id="statusMessage"></div>
 
     <div class="input-container">
         <input type="text" id="textInput" placeholder="Type your message..." />
         <label for="uploadImageInput" class="icon-button">➕</label>
         <input type="file" id="uploadImageInput" accept="image/*" />
-        <button id="sendButton" class="icon-button">➡️</button>
+        <button id="send-btn">
+            <i class="fas fa-paper-plane"></i>
+          </button>
+          
     </div>
 
     <div class="mode-buttons">
@@ -164,26 +179,34 @@
     const nutritionModeBtn = document.getElementById("nutritionModeBtn");
     const chatContainer = document.getElementById("chatContainer");
     const statusMessage = document.getElementById("statusMessage");
-    const imagePreview = document.getElementById("imagePreview");
     const subheading = document.getElementById("subheading");
     let currentMode = "chat";
 
     function formatNutritionResponse(responseText) {
         let formatted = responseText
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold headings
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
             .replace(/\n\n/g, '<br><br>')
             .replace(/\n/g, '<br>')
             .replace(/- /g, '• ');
         return formatted;
     }
 
-    function appendMessage(sender, message) {
+    function appendMessage(sender, message, isHTML = false, isImage = false) {
         const msg = document.createElement("div");
         msg.classList.add(sender === "user" ? "user-message" : "bot-message");
         msg.dataset.mode = currentMode;
-        msg.innerHTML = (sender === "bot" && currentMode === "nutrition") 
-                          ? formatNutritionResponse(message) 
-                          : message;
+
+        if (isImage) {
+            const img = document.createElement("img");
+            img.src = message;
+            img.classList.add("chat-image");
+            msg.appendChild(img);
+        } else {
+            msg.innerHTML = (sender === "bot" && currentMode === "nutrition" && isHTML)
+                ? formatNutritionResponse(message)
+                : message;
+        }
+
         chatBox.appendChild(msg);
         chatBox.scrollTop = chatBox.scrollHeight;
     }
@@ -206,7 +229,7 @@
         })
         .then(res => res.json())
         .then(data => {
-            appendMessage("bot", data.response);
+            appendMessage("bot", data.response, true);
             toggleMessageVisibility();
         });
     };
@@ -218,18 +241,19 @@
     uploadInput.onchange = () => {
         const file = uploadInput.files[0];
         if (!file) return;
+
         const reader = new FileReader();
         reader.onload = function (e) {
-            imagePreview.src = e.target.result;
-            imagePreview.style.display = "block";
+            appendMessage("user", e.target.result, false, true); // image as user bubble
+            toggleMessageVisibility();
         };
         reader.readAsDataURL(file);
 
         const formData = new FormData();
         formData.append("image", file);
         appendMessage("user", "[Image uploaded for analysis...]");
-        statusMessage.textContent = "Analyzing uploaded image...";
 
+        statusMessage.textContent = "Analyzing uploaded image...";
         fetch("/upload_image", {
             method: "POST",
             body: formData
@@ -238,11 +262,12 @@
         .then(data => {
             statusMessage.textContent = "";
             if (data.response) {
-                appendMessage("bot", data.response);
+                appendMessage("bot", data.response, true);
             } else if (data.error) {
                 appendMessage("bot", "Error: " + data.error);
             }
             toggleMessageVisibility();
+            uploadInput.value = '';
         })
         .catch(err => {
             statusMessage.textContent = "";

@@ -7,103 +7,114 @@ from groq import Groq
 from PIL import Image
 import pytesseract
 import os
-import io
 from werkzeug.utils import secure_filename
+
 pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
-
-
-# Initialize Flask app
 app = Flask(__name__)
 app.secret_key = 'JAM32631'
 
-# Load environment variables
 load_dotenv()
-
-# Set API keys
 os.environ["PINECONE_API_KEY"] = "pcsk_UWfTo_8FyHHoCj6NMrkyYrctTkc8QG8KCxAM5ofAojoRUwadDPTkTgL8uenKcuAJncteU"
-GROQ_API_KEY = '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'
+GROQ_API_KEY = "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"
 
-# Load embeddings and Pinecone index
 embeddings = download_hugging_face_embeddings()
 index_name = "testbot"
 docsearch = PineconeVectorStore.from_existing_index(index_name=index_name, embedding=embeddings)
 retriever = docsearch.as_retriever(search_type="similarity", search_kwargs={"k": 3})
-
-# Initialize Groq client
 client = Groq(api_key=GROQ_API_KEY)
 
 
-# Home route
 @app.route("/")
 def index():
     if 'mode' not in session:
         session['mode'] = 'chat'
     if 'chat_history' not in session:
-        session['chat_history'] = []  # Initialize chat history
+        session['chat_history'] = []
     return render_template("chat.html", chat_history=session['chat_history'])
 
 
-# Mode switch route
 @app.route("/set_mode", methods=["POST"])
 def set_mode():
     selected_mode = request.form.get("mode")
     session['mode'] = selected_mode
+    print("[DEBUG] Mode switched to:", selected_mode)
     return jsonify({"status": "success", "mode": selected_mode})
 
 
-# Chat handling route
 @app.route("/get", methods=["POST"])
 def chat():
     user_query = request.form["msg"]
     mode = session.get('mode', 'chat')
+    print("[DEBUG] /get triggered with mode:", mode)
 
     if 'chat_history' not in session:
         session['chat_history'] = []
 
+    messages = [{"role": "system", "content": "You are a helpful health and nutrition assistant."}]
+
     if mode == 'chat':
         retrieved_docs = retriever.invoke(user_query)
         context_text = "\n\n".join([doc.page_content for doc in retrieved_docs])
+        history = session['chat_history'][-8:]
+        for chat in history:
+            if chat['sender'] == 'user':
+                messages.append({"role": "user", "content": chat['message']})
+            elif chat['sender'] == 'bot':
+                messages.append({"role": "assistant", "content": chat['message']})
+        messages.append({
+            "role": "user",
+            "content": f"Context:\n{context_text}\n\nUser Question: {user_query}"
+        })
 
-        system_prompt = """You are an expert in healthcare, health, and things related to healthcare.Use the following pieces of information to answer the user's question.
-If you don't know the answer, just say you don't know. Don't try to make up an answer.
-
-Context: {context}
-Question: {question}
-
-Only return the helpful answer below and nothing else.
-Helpful answer:"""
-        final_prompt = system_prompt.format(context=context_text, question=user_query)
-    
     elif mode == 'nutrition':
-        final_prompt = f"""
-Act as a nutrition ingredient analysis expert. Based on the following ingredient list or food label content, provide a clear, structured, and point-wise output.
+        words = user_query.strip().split()
+      
+        messages.append({
+                "role": "user",
+                "content": f"""Act as a nutrition ingredient analysis expert. Analyze the following ingredient list or food label content. Provide a clear, structured, and spaced multiline output if it is a list of ingredients.
 
-1. **Plain Summary of Ingredients** (bullet points if many).
-2. **Ingredient Categorization** (e.g., emulsifier, preservative, additive, natural, synthetic).
-3. **Health Impact Tags** (e.g., impact on acne, PCOS, diabetes, gut health, etc).
-4. **Red Flags or Vague Terms** (e.g., 'natural flavoring', 'spices', etc).
-5. **Warnings**: High sugar, sodium, bad fats, hormone disruptors, etc.
-6. **Diet Compatibility**: Mark if it's suitable for keto, sugar-free, low-carb, gluten-free,acne prone etc.
-7. **Final Verdict- Is it a health-conscious choice?**: Is it a health-conscious choice? (Yes/No with a reason).
+1. **Plain Summary of Ingredients**
+- List ingredients clearly
 
-Input: {user_query}
+2. **Ingredient Categorization**
+- Categorize each (e.g., emulsifier, preservative)
+-Give their affects on health and information about them 
 
-Format your output using:
-- Numbered lists
-- Bullet points
-- Bold section titles
-- Avoid long paragraphs.
-"""
+3. **Health Impact Tags**
+- Acne, PCOS, diabetes, gut health etc.
+
+4. **Red Flags or Vague Terms**
+- e.g., 'natural flavoring', 'spices'
+
+5. **Warnings**
+- High sugar, sodium, bad fats, hormone disruptors, etc.
+
+6. **Diet Compatibility**
+- Keto, sugar-free, low-carb, gluten-free,vegan etc.
+
+7. **Final Verdict**
+- Yes/No with reason. Is it a health-conscious choice?
+
+
+Otherwise-You are a nutrition expert. Explain in a clear and factual way about the ingredient related or general nutrition related question asked.Give affects of the food on health and necessary precautions, risks associated if any:
+
+
+
+
+Ensure spacing, numbered sections, and line breaks. Avoid single-paragraph responses.
+
+Input: {user_query}"""
+            })
+
+    else:
+        print("[WARNING] Unknown mode fallback to chat.")
+        mode = 'chat'
 
     response = client.chat.completions.create(
         model="llama3-8b-8192",
-        messages=[
-            {"role": "system", "content": "You are a helpful health and nutrition assistant."},
-            {"role": "user", "content": final_prompt}
-        ]
+        messages=messages
     )
-
     result = response.choices[0].message.content
 
     session['chat_history'].append({"sender": "user", "message": user_query})
@@ -112,7 +123,6 @@ Format your output using:
     return jsonify({"response": result, "chat_history": session['chat_history']})
 
 
-# Image Upload + OCR + Nutrition Analysis Route
 @app.route("/upload_image", methods=["POST"])
 def upload_image():
     if 'image' not in request.files:
@@ -135,41 +145,57 @@ def upload_image():
         if not cleaned_text.strip():
             return jsonify({'error': "Couldn't extract text from the image."}), 400
 
-        session['mode'] = 'nutrition'
-        user_query = cleaned_text
+        mode = session.get('mode', 'chat')  # Use current mode from session
+        messages = [{"role": "system", "content": "You are a helpful health focused,healthcare,disease,sickness relieve,fitness,medicine and nutrition assistant."}]
 
-        final_prompt = f"""
-Act as a nutrition ingredient analysis expert. Based on the following ingredient list or food label content, provide a clear, structured, and point-wise output.
+        if mode == "nutrition":
+            messages.append({
+                "role": "user",
+                "content": f"""Act as a nutrition ingredient analysis expert. Analyze the following ingredient list or food label content. Provide a clear, structured, and spaced multiline output.
 
-1. **Plain Summary of Ingredients** (bullet points if many).
-2. **Ingredient Categorization** (e.g., emulsifier, preservative, additive, natural, synthetic).
-3. **Health Impact Tags** (e.g., impact on acne, PCOS, diabetes, gut health, etc).
-4. **Red Flags or Vague Terms** (e.g., 'natural flavoring', 'spices', etc).
-5. **Warnings**: High sugar, sodium, bad fats, hormone disruptors, etc.
-6. **Diet Compatibility**: Mark if it's suitable for keto, sugar-free, low-carb, gluten-free, etc.
-7. **Final Verdict**: Is it a health-conscious choice? (Yes/No with a reason).
+                1. **Plain Summary of Ingredients**
+                - List ingredients clearly
 
-Input: {user_query}
+                2. **Ingredient Categorization**
+                - Categorize each (e.g., emulsifier, preservative)
+                -their their affects on health and information about them 
 
-Format your output using:
-- Numbered lists
-- Bullet points
-- Bold section titles
-- Avoid long paragraphs.
-"""
+                3. **Health Impact Tags**
+                - Acne, PCOS, diabetes, gut health, blood pressure etc.
+
+                4. **Red Flags or Vague Terms**
+                - e.g., 'natural flavoring', 'spices', 'apple juice concentrate', 'sugar substitutes like maltodextrin, maltitol, aspartame, etc.'
+
+                5. **Warnings**
+                - High sugar, sodium, bad fats, hormone disruptors, etc.
+
+                6. **Diet Compatibility**
+                - Keto, sugar-free, low-carb, gluten-free, vegan etc.
+
+                7. **Final Verdict**
+                - Yes/No with reason. Is it a health-conscious choice?
+
+                Ensure spacing, numbered sections, and line breaks. Avoid single-paragraph responses.
+
+                Input: {cleaned_text}"""
+                            })
+
+        else:
+            # Chat Mode: Ask in conversational health-oriented tone
+            messages.append({
+                "role": "user",
+                "content": f"""A user has uploaded a health related document ,food product label, medicine related document or any health realted document :\n\n{cleaned_text}\n\nProvide a health-oriented summary of this label in a conversational and helpful tone, focusing on general health and asking if any other help is needed related to it. Keep it friendly and simple."""
+            })
 
         response = client.chat.completions.create(
             model="llama3-8b-8192",
-            messages=[
-                {"role": "system", "content": "You are a helpful health and nutrition assistant."},
-                {"role": "user", "content": final_prompt}
-            ]
+            messages=messages
         )
-
         result = response.choices[0].message.content
         return jsonify({'response': result})
 
     except Exception as e:
+        print("Image processing failed:", str(e))
         return jsonify({'error': 'Failed to process image'}), 500
 
 

@@ -2,6 +2,7 @@
 
 CURA is an AI-powered healthcare chatbot that combines Retrieval-Augmented Generation (RAG) with OCR capabilities to deliver accurate, real-time medical information and nutritional label analysis. Designed with responsiveness, scalability, and reliability in mind, CURA leverages cutting-edge tools like Groq-hosted LLaMA 3, Pinecone vector database, HuggingFace embeddings, and Tesseract OCR.
 
+
 **Project Highlights**
 
 Medical Chat Mode: Uses a RAG pipeline to answer health-related questions using information sourced from The Gale Encyclopedia of Medicine.
@@ -11,6 +12,7 @@ Nutrition Label Decoder: Accepts uploaded food label images, extracts text using
 Low Latency: Achieves average response times 75% faster than GPT-3.5 Turbo using the Groq API with LLaMA 3 8B.
 
 Modular Design: Built with Flask for easy integration, independent module use, and scalability.
+
 
 **System Architecture**
 
@@ -30,6 +32,7 @@ Nutrition Label Decoder Pipeline:
 Images are processed using Pillow and Tesseract OCR.
 
 Text is interpreted and analyzed using a lightweight RAG approach with nutrition heuristics.
+
 
 **Tech Stack**
 

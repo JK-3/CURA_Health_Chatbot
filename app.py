@@ -12,11 +12,11 @@ from werkzeug.utils import secure_filename
 pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
 app = Flask(__name__)
-app.secret_key = 'JAM32631'
+app.secret_key = 'your key'
 
 load_dotenv()
-os.environ["PINECONE_API_KEY"] = "pcsk_UWfTo_8FyHHoCj6NMrkyYrctTkc8QG8KCxAM5ofAojoRUwadDPTkTgL8uenKcuAJncteU"
-GROQ_API_KEY = "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"
+os.environ["PINECONE_API_KEY"] = "your pinecone api key "
+GROQ_API_KEY = " your groq api key"
 
 embeddings = download_hugging_face_embeddings()
 index_name = "testbot"
